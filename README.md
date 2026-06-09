@@ -13,7 +13,7 @@ source venv/bin/activate       # macOS/Linux
 pip install -r requirements.txt
 ```
 
-Python 3.11+. No Node.js needed — the frontend is a plain HTML file.
+Python 3.11+. No Node.js needed, the frontend is a plain HTML file.
 
 ## Layout
 
@@ -70,7 +70,7 @@ Endpoints: `POST /run`, `GET /traces`, `GET /attack`, `GET /report`, `GET /healt
 | TVLA max\|t\| (N=500) | 81 | 82 |
 | ML-DSA TVLA max\|t\| (N=200) | 70 | n/a |
 
-TVLA threshold is 4.5. Both models leak substantially — neither algorithm has countermeasures.
+TVLA threshold is 4.5. Both models leak substantially, neither algorithm has countermeasures.
 
 ## Algorithm parameters
 
