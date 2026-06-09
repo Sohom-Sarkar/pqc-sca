@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.ipynb_checkpoints/
+notebooks/full_pipeline_executed.ipynb
+*.log
+.env
+*.onetoc2

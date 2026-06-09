@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PQC Side-Channel Analyzer</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surf:    #161b22;
+      --surf2:   #1c2128;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #8b949e;
+      --accent:  #58a6ff;
+      --green:   #3fb950;
+      --red:     #f85149;
+      --orange:  #d29922;
+      --purple:  #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+    header {
+      background: var(--surf); border-bottom: 1px solid var(--border);
+      padding: 0.65rem 1.5rem; display: flex; align-items: center; gap: 1rem; flex-shrink: 0;
+    }
+    header h1 { font-size: 0.95rem; font-weight: 600; color: var(--text); white-space: nowrap; }
+    header .sub { font-size: 0.75rem; color: var(--muted); }
+    header .spacer { flex: 1; }
+    .vbadge { padding: 0.2rem 0.7rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+    .vbadge-LOW    { background: rgba(63,185,80,0.12);  color: var(--green);  border: 1px solid rgba(63,185,80,0.25); }
+    .vbadge-MEDIUM { background: rgba(210,153,34,0.12); color: var(--orange); border: 1px solid rgba(210,153,34,0.25); }
+    .vbadge-HIGH   { background: rgba(248,81,73,0.12);  color: var(--red);    border: 1px solid rgba(248,81,73,0.25); }
+
+    .layout { display: grid; grid-template-columns: 255px 1fr; flex: 1; overflow: hidden; }
+
+    .sidebar {
+      background: var(--surf); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .sidebar-inner { padding: 1rem; display: flex; flex-direction: column; gap: 1.1rem; flex: 1; }
+    .sidebar-section { display: flex; flex-direction: column; gap: 0.4rem; }
+    .sidebar-label { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.1rem; }
+
+    .tgroup { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .tbtn {
+      flex: 1; min-width: 55px; padding: 0.32rem 0.45rem; font-size: 0.73rem; cursor: pointer;
+      background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+      border-radius: 5px; text-align: center; transition: all 0.12s; white-space: nowrap;
+    }
+    .tbtn.active { background: rgba(88,166,255,0.12); color: var(--accent); border-color: rgba(88,166,255,0.4); }
+    .tbtn:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+    .model-note { font-size: 0.68rem; color: var(--muted); line-height: 1.5; padding-top: 0.2rem; }
+
+    .slider-wrap { display: flex; flex-direction: column; gap: 0.2rem; }
+    .slider-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .slider-lbl { font-size: 0.75rem; color: var(--muted); }
+    .slider-val { font-size: 0.75rem; color: var(--text); font-weight: 500; }
+    input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; margin-top: 0.15rem; }
+
+    .run-btn {
+      width: 100%; padding: 0.65rem; background: var(--accent); color: #0d1117;
+      border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: background 0.12s;
+      display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+    }
+    .run-btn:hover:not(:disabled) { background: #79c0ff; }
+    .run-btn:disabled { background: var(--surf2); color: var(--muted); cursor: not-allowed; border: 1px solid var(--border); }
+
+    .progress-track { background: var(--border); border-radius: 2px; height: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+    .status-ok  { font-size: 0.72rem; color: var(--green); }
+    .status-err { font-size: 0.72rem; color: var(--red); }
+
+    .main { overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
+
+    .metrics-row { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 0.65rem; }
+    .mc { background: var(--surf2); border: 1px solid var(--border); border-radius: 6px; padding: 0.8rem 0.9rem; }
+    .mc .v { font-size: 1.45rem; font-weight: 700; line-height: 1; }
+    .mc .l { font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; line-height: 1.4; }
+    .mc-wide { display: flex; align-items: center; gap: 1.2rem; }
+    .mc-wide .v { font-size: 1.1rem; }
+    .mc-wide .sep { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+    .c-a { color: var(--accent); }
+    .c-g { color: var(--green); }
+    .c-o { color: var(--orange); }
+    .c-r { color: var(--red); }
+    .c-p { color: var(--purple); }
+
+    .tab-card { background: var(--surf2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surf); }
+    .tab {
+      padding: 0.5rem 0.9rem; font-size: 0.78rem; cursor: pointer;
+      color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.12s; white-space: nowrap;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab:hover:not(.active) { color: var(--text); }
+    .tab-body { padding: 1rem; }
+
+    .plot-img { width: 100%; border-radius: 4px; display: block; }
+    .plot-note { font-size: 0.7rem; color: var(--muted); margin-top: 0.4rem; line-height: 1.5; }
+
+    .key-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.75rem; }
+    .key-table th { text-align: left; padding: 0.35rem 0.55rem; color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); font-weight: 500; }
+    .key-table td { padding: 0.35rem 0.55rem; border-bottom: 1px solid var(--border); }
+    .key-table tr:last-child td { border-bottom: none; }
+    .key-table .top { color: var(--accent); font-weight: 600; }
+
+    .cm-list { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.5rem; }
+    .cm-item {
+      border-left: 2px solid var(--border); padding: 0.45rem 0.75rem;
+      font-size: 0.79rem; color: var(--muted); line-height: 1.55;
+    }
+
+    .empty-state {
+      display: flex; align-items: center; justify-content: center;
+      flex: 1; color: var(--muted); font-size: 0.82rem; padding: 3rem;
+      text-align: center; line-height: 1.6;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px; height: 14px; flex-shrink: 0;
+      border: 2px solid rgba(13,17,23,0.25); border-top-color: #0d1117;
+      border-radius: 50%; animation: spin 0.65s linear infinite;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useCallback, useRef } = React;
+const API = "http://localhost:8000";
+
+const ALGOS  = ["ML_KEM_512", "ML_KEM_768", "ML_DSA_44"];
+const MODELS = ["hamming_weight", "physics"];
+
+function ToggleGroup({ options, value, onChange, fmt }) {
+  return (
+    <div className="tgroup">
+      {options.map(o => (
+        <div key={o} className={`tbtn${value === o ? " active" : ""}`} onClick={() => onChange(o)}>
+          {fmt ? fmt(o) : o}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Slider({ label, value, min, max, step, onChange, fmt }) {
+  return (
+    <div className="slider-wrap">
+      <div className="slider-row">
+        <span className="slider-lbl">{label}</span>
+        <span className="slider-val">{fmt ? fmt(value) : value}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+             onChange={e => onChange(Number(e.target.value))} />
+    </div>
+  );
+}
+
+function App() {
+  const [algo,     setAlgo]     = useState("ML_KEM_512");
+  const [model,    setModel]    = useState("physics");
+  const [nTraces,  setNTraces]  = useState(500);
+  const [snrDb,    setSnrDb]    = useState(20);
+  const [loading,  setLoading]  = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status,   setStatus]   = useState(null);
+  const [tab,      setTab]      = useState("traces");
+  const [data,     setData]     = useState(null);
+  const timer = useRef(null);
+
+  const startProgress = () => {
+    let p = 4;
+    setProgress(p);
+    timer.current = setInterval(() => {
+      p = Math.min(p + (88 - p) * 0.06, 88);
+      setProgress(p);
+    }, 450);
+  };
+
+  const stopProgress = ok => {
+    clearInterval(timer.current);
+    setProgress(ok ? 100 : 0);
+  };
+
+  const run = useCallback(async () => {
+    setLoading(true);
+    setStatus(null);
+    setData(null);
+    startProgress();
+    try {
+      const res = await fetch(`${API}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ algorithm: algo, model, n_traces: nTraces, snr_db: snrDb, seed: 42 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const run = await res.json();
+      const [tr, atk, rep] = await Promise.all([
+        fetch(`${API}/traces`).then(r => r.json()),
+        fetch(`${API}/attack`).then(r => r.json()),
+        fetch(`${API}/report`).then(r => r.json()),
+      ]);
+      setData({ run, traces: tr, attack: atk, report: rep });
+      stopProgress(true);
+      setStatus({ ok: true, msg: `${run.n_traces} traces, ${run.trace_length} samples each` });
+    } catch (e) {
+      stopProgress(false);
+      setStatus({ ok: false, msg: e.message });
+    } finally {
+      setLoading(false);
+    }
+  }, [algo, model, nTraces, snrDb]);
+
+  const rep   = data?.report;
+  const tvla  = rep?.tvla;
+  const cpa   = rep?.cpa;
+  const vl    = data?.run?.vulnerability_label;
+
+  return (
+    <>
+      <header>
+        <h1>PQC Side-Channel Analyzer</h1>
+        <span className="sub">ML-KEM / ML-DSA &middot; CPA &middot; TVLA</span>
+        <div className="spacer" />
+        {vl && <span className={`vbadge vbadge-${vl}`}>{vl}</span>}
+      </header>
+
+      <div className="layout">
+        <div className="sidebar">
+          <div className="sidebar-inner">
+            <div className="sidebar-section">
+              <span className="sidebar-label">Algorithm</span>
+              <ToggleGroup options={ALGOS} value={algo} onChange={setAlgo}
+                           fmt={s => s.replace("ML_","").replace("_","-")} />
+            </div>
+
+            <div className="sidebar-section">
+              <span className="sidebar-label">Leakage model</span>
+              <ToggleGroup options={MODELS} value={model} onChange={setModel}
+                           fmt={s => s === "physics" ? "Physics" : "Hamming Weight"} />
+              <span className="model-note">
+                {model === "physics"
+                  ? "α·HD·C·V² + β·HW·V + thermal + flicker"
+                  : "HW(v) + Gaussian noise"}
+              </span>
+            </div>
+
+            <div className="sidebar-section">
+              <Slider label="Traces" value={nTraces} min={50} max={5000} step={50}
+                      onChange={setNTraces} fmt={v => v.toLocaleString()} />
+              <Slider label="SNR" value={snrDb} min={0} max={60} step={1}
+                      onChange={setSnrDb} fmt={v => `${v} dB`} />
+            </div>
+
+            <button className="run-btn" onClick={run} disabled={loading}>
+              {loading ? <><div className="spinner" /> working</> : "Run"}
+            </button>
+
+            {loading && (
+              <div className="progress-track">
+                <div className="progress-fill" style={{width:`${progress}%`}} />
+              </div>
+            )}
+
+            {status && !loading && (
+              <span className={status.ok ? "status-ok" : "status-err"}>
+                {status.msg}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="main">
+          {!data && (
+            <div className="empty-state">
+              Pick an algorithm and model on the left, then hit Run.
+            </div>
+          )}
+
+          {data && (
+            <>
+              <div className="metrics-row">
+                <div className="mc">
+                  <div className="v c-a">{cpa?.peak_correlation?.toFixed(3)}</div>
+                  <div className="l">CPA peak |ρ|</div>
+                </div>
+                <div className="mc">
+                  <div className="v c-p">
+                    0x{(cpa?.recovered_key ?? 0).toString(16).padStart(2,"0").toUpperCase()}
+                  </div>
+                  <div className="l">recovered byte</div>
+                </div>
+                <div className="mc mc-wide">
+                  <div>
+                    <div className="v" style={{color: tvla?.leakage_detected ? "var(--red)" : "var(--green)"}}>
+                      {tvla?.max_t?.toFixed(1)}
+                    </div>
+                    <div className="l">TVLA max|t| (threshold 4.5)</div>
+                  </div>
+                  <div className="sep" />
+                  <div>
+                    <div className="v c-o">{tvla?.n_leaking_samples?.toLocaleString()}</div>
+                    <div className="l">leaking samples</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="tab-card">
+                <div className="tabs">
+                  {[["traces","Traces"],["cpa","CPA"],["tvla","TVLA"],["countermeasures","Mitigations"]].map(([id, lbl]) => (
+                    <div key={id} className={`tab${tab===id?" active":""}`} onClick={() => setTab(id)}>{lbl}</div>
+                  ))}
+                </div>
+
+                <div className="tab-body">
+                  {tab === "traces" && (
+                    <>
+                      {data.traces?.plot_png
+                        ? <img className="plot-img" src={`data:image/png;base64,${data.traces.plot_png}`} alt="Power traces" />
+                        : <p style={{color:"var(--muted)"}}>No plot.</p>}
+                      <p className="plot-note">
+                        {data.traces?.n} traces &times; {data.traces?.T?.toLocaleString()} samples.
+                        The rightmost third (<code style={{color:"var(--accent)"}}>kem_intt</code>) is secret-dependent.
+                      </p>
+                    </>
+                  )}
+
+                  {tab === "cpa" && (
+                    <>
+                      {data.attack?.cpa?.plot_png
+                        ? <img className="plot-img" src={`data:image/png;base64,${data.attack.cpa.plot_png}`} alt="CPA" />
+                        : <p style={{color:"var(--muted)"}}>No plot.</p>}
+                      <p className="plot-note">Pearson correlation vs time, all 256 candidates. Brightest peak = recovered byte.</p>
+                      <table className="key-table">
+                        <thead><tr><th>#</th><th>Guess</th><th>|ρ|</th></tr></thead>
+                        <tbody>
+                          {(cpa?.top5_guesses ?? []).map((g, i) => (
+                            <tr key={i}>
+                              <td>{i + 1}</td>
+                              <td className={i === 0 ? "top" : ""}>{g.key}</td>
+                              <td className={i === 0 ? "top" : ""}>{g.peak_corr.toFixed(4)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  )}
+
+                  {tab === "tvla" && (
+                    <>
+                      {data.attack?.tvla?.plot_png
+                        ? <img className="plot-img" src={`data:image/png;base64,${data.attack.tvla.plot_png}`} alt="TVLA" />
+                        : <p style={{color:"var(--muted)"}}>No plot.</p>}
+                      <p className="plot-note">
+                        Welch t-statistic per sample. Dashed line = ±4.5.
+                        {tvla?.leakage_detected
+                          ? ` Leakage detected: ${tvla.n_leaking_samples?.toLocaleString()} samples (${(tvla.leaking_density * 100).toFixed(1)}%).`
+                          : " No leakage detected at this threshold."}
+                      </p>
+                    </>
+                  )}
+
+                  {tab === "countermeasures" && (
+                    <div className="cm-list">
+                      {(rep?.countermeasures ?? []).map((c, i) => (
+                        <div key={i} className="cm-item">{c}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

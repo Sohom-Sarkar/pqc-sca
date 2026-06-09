@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PQC Side-Channel Analyzer — Sohom Sarkar</title>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #8b949e;
+      --accent:  #58a6ff;
+      --green:   #3fb950;
+      --orange:  #d29922;
+      --red:     #f85149;
+      --purple:  #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,17,23,0.93); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.7rem 2rem;
+    }
+    nav .brand { font-weight: 700; font-size: 0.92rem; color: var(--text); }
+    nav .brand span { color: var(--accent); }
+    nav ul { list-style: none; display: flex; gap: 1.8rem; }
+    nav a { color: var(--muted); text-decoration: none; font-size: 0.83rem; transition: color 0.15s; }
+    nav a:hover { color: var(--text); }
+
+    .hero {
+      max-width: 820px; margin: 0 auto;
+      padding: 5rem 2rem 3.5rem;
+    }
+    .hero-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 1.4rem; letter-spacing: 0.2px; }
+    .hero h1 {
+      font-size: clamp(1.9rem, 4vw, 2.9rem); font-weight: 800;
+      line-height: 1.12; margin-bottom: 1.3rem; letter-spacing: -0.6px; color: var(--text);
+    }
+    .hero p { font-size: 1rem; color: var(--muted); max-width: 640px; margin-bottom: 2rem; line-height: 1.75; }
+    .hero-links { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+    .link-primary {
+      padding: 0.55rem 1.2rem; background: var(--accent); color: #0d1117;
+      border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-decoration: none; transition: background 0.15s;
+    }
+    .link-primary:hover { background: #79c0ff; }
+    .link-secondary {
+      padding: 0.55rem 1.2rem; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 6px; font-size: 0.85rem; text-decoration: none; transition: all 0.15s;
+    }
+    .link-secondary:hover { border-color: var(--muted); color: var(--text); }
+
+    section { max-width: 860px; margin: 0 auto; padding: 3.5rem 2rem; }
+    section + section { border-top: 1px solid var(--border); }
+    h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 1.1rem; letter-spacing: -0.3px; }
+    h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); margin-top: 2rem; }
+    h3:first-of-type { margin-top: 1.5rem; }
+    p { color: var(--muted); margin-bottom: 0.9rem; font-size: 0.95rem; }
+    p:last-child { margin-bottom: 0; }
+    strong { color: var(--text); font-weight: 600; }
+
+    .stack-list { display: flex; flex-direction: column; gap: 0; margin: 1.5rem 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .stack-item { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+    .stack-item:last-child { border-bottom: none; }
+    .stack-tag { width: 130px; flex-shrink: 0; padding: 0.85rem 1rem; background: var(--surface); font-size: 0.78rem; color: var(--muted); font-weight: 500; display: flex; align-items: center; border-right: 1px solid var(--border); }
+    .stack-desc { padding: 0.85rem 1.1rem; font-size: 0.84rem; color: var(--muted); line-height: 1.55; display: flex; align-items: center; }
+
+    .formula-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.2rem 1.5rem; margin: 1.5rem 0;
+      font-family: 'Consolas', 'Courier New', monospace; font-size: 0.84rem; line-height: 2.1;
+      overflow-x: auto;
+    }
+    .fc { color: var(--accent); }
+    .fd { color: var(--purple); }
+    .fn { color: var(--orange); }
+    .fmuted { color: var(--muted); font-style: italic; }
+
+    .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem; margin: 1.8rem 0; }
+    .mcard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    .mcard.wide { grid-column: span 2; }
+    .mcard .mv { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+    .mcard .ml { font-size: 0.71rem; color: var(--muted); margin-top: 0.35rem; line-height: 1.45; }
+    .c-accent { color: var(--accent); }
+    .c-green  { color: var(--green); }
+    .c-orange { color: var(--orange); }
+    .c-purple { color: var(--purple); }
+
+    .plot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.2rem 0; }
+    .plot-grid.wide { grid-template-columns: 1fr; }
+    .plot-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .plot-card img { width: 100%; display: block; }
+    .plot-caption { padding: 0.55rem 0.9rem; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); line-height: 1.5; }
+
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.85rem; }
+    th { text-align: left; padding: 0.55rem 0.9rem; background: var(--surface); color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); }
+    td { padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border); color: var(--text); font-size: 0.84rem; }
+    tr:last-child td { border-bottom: none; }
+    td code { background: rgba(88,166,255,0.1); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.8rem; font-family: monospace; }
+    .ok { color: var(--green); font-weight: 600; }
+
+    .callout {
+      background: rgba(210,153,34,0.07); border: 1px solid rgba(210,153,34,0.25);
+      border-radius: 8px; padding: 1rem 1.2rem; margin: 1.5rem 0; font-size: 0.86rem;
+      color: var(--muted); line-height: 1.65;
+    }
+    .callout b { color: var(--orange); }
+
+    footer { border-top: 1px solid var(--border); padding: 2rem; font-size: 0.78rem; color: var(--muted); max-width: 860px; margin: 0 auto; }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 640px) {
+      .plot-grid { grid-template-columns: 1fr; }
+      .metrics-row { grid-template-columns: 1fr 1fr; }
+      nav ul { gap: 1rem; }
+      .hero { padding: 3rem 1.2rem 2rem; }
+      section { padding: 2.5rem 1.2rem; }
+      .stack-tag { width: 100px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">PQC<span>-SCA</span></div>
+  <ul>
+    <li><a href="#about">About</a></li>
+    <li><a href="#method">Method</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#attacks">Attacks</a></li>
+    <li><a href="#impl">Code</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <div class="hero-meta">Sohom Sarkar &middot; B.Tech EE (VLSI), IIT Jodhpur</div>
+  <h1>Post-Quantum Cryptography<br>Side-Channel Analyzer</h1>
+  <p>
+    I built ML-KEM and ML-DSA from scratch, instrumented every NTT butterfly, and
+    ran CPA and TVLA attacks against both a standard Hamming Weight model and a
+    physics-informed CMOS model. The physics model attenuates CPA correlation by around 6%
+    because HD-based switching noise doesn't line up with what the attacker's hypothesis assumes.
+  </p>
+  <div class="hero-links">
+    <a href="https://github.com/Sohom-Sarkar/pqc-sca" class="link-primary">GitHub</a>
+    <a href="#results" class="link-secondary">Results</a>
+    <a href="mailto:sohomsarkar29@gmail.com" class="link-secondary">sohomsarkar29@gmail.com</a>
+  </div>
+</div>
+
+<section id="about">
+  <h2>Background</h2>
+  <p>
+    Side-channel attacks work because a chip's power consumption changes depending on
+    what data it's processing. Someone with an oscilloscope and enough patience can
+    statistically recover a secret key without ever breaking the math. Most SCA research
+    models this with Hamming Weight, treating every bit as an equal contributor to power.
+    That's a simplification CMOS doesn't actually follow.
+  </p>
+  <p>
+    I wanted to find out whether that gap between model and reality is measurable. Does a
+    physics-based simulator produce traces that are genuinely harder to attack, and by how much?
+    To answer that I first had to implement ML-KEM and ML-DSA correctly from the FIPS specs,
+    which turned out to be the most time-consuming part of the project. The boundary condition
+    bug in ML-DSA's Decompose function alone took two days to track down.
+  </p>
+
+  <div class="stack-list">
+    <div class="stack-item">
+      <div class="stack-tag">Algorithms</div>
+      <div class="stack-desc">ML-KEM-512/768 (FIPS 203) and ML-DSA-44 (FIPS 204). NTT over &#8484;_q written by hand. Validated against the FIPS KAT vectors.</div>
+    </div>
+    <div class="stack-item">
+      <div class="stack-tag">Leakage</div>
+      <div class="stack-desc">CMOS power model combining dynamic switching (HD&middot;C&middot;V&sup2;), static leakage (HW&middot;V), thermal noise, and 1/f flicker noise. Compared against a plain Hamming Weight baseline.</div>
+    </div>
+    <div class="stack-item">
+      <div class="stack-tag">Attacks</div>
+      <div class="stack-desc">Byte-level CPA (Kocher 1999), NTT-coefficient CPA with only 7 candidates, and TVLA leakage detection on both algorithms.</div>
+    </div>
+    <div class="stack-item">
+      <div class="stack-tag">Interface</div>
+      <div class="stack-desc">FastAPI backend and a single-file React dashboard. No build step needed; just open the HTML file and run the server.</div>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <h2>The physics-informed leakage model</h2>
+  <p>
+    The standard SCA assumption is that power scales with the Hamming Weight of whatever
+    value the chip is processing. It's a useful approximation, but real CMOS power comes
+    mostly from dynamic switching: when a bit flips, the node capacitance charges or
+    discharges through V&sup2;. That's Hamming <em>Distance</em>, not Hamming Weight,
+    and the two don't perfectly track each other.
+  </p>
+  <div class="formula-box">
+    <span class="fc">P</span>(<span class="fd">v_new</span>, <span class="fd">v_old</span>) =
+      <span class="fd">&alpha;</span> &middot; HD(<span class="fd">v_new</span>, <span class="fd">v_old</span>) &middot; C &middot; V&sup2;
+      <span class="fmuted">  &larr; switching energy per bit flip</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+
+      <span class="fd">&beta;</span> &middot; HW(<span class="fd">v_new</span>) &middot; V
+      <span class="fmuted">  &larr; static leakage (subthreshold current)</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+
+      <span class="fn">&gamma;</span> &middot; N(0, &sigma;&sup2;<sub>thermal</sub>)
+      <span class="fmuted">  &larr; Johnson-Nyquist noise</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+
+      <span class="fn">&delta;</span> &middot; N(0, &sigma;&sup2;<sub>flicker</sub>)
+      <span class="fmuted">  &larr; 1/f interface-trap noise</span>
+  </div>
+  <p>
+    When a CPA attacker applies a HW hypothesis to traces from this model, the HD component
+    introduces noise that the hypothesis can't account for. That's the source of the ~6%
+    correlation drop I measured. It's not random noise; it's structured noise from a
+    fundamentally wrong model assumption.
+  </p>
+
+  <h3>Instrumentation</h3>
+  <p>
+    A <code>Tracer</code> object sits inside the NTT and records each butterfly as
+    <code>(op_name, old_value, new_value)</code>. The leakage model reads that log and
+    produces a synthetic power trace. For ML-KEM-512 decapsulation, one run gives
+    10,752 samples split across three regions:
+  </p>
+  <table>
+    <tr><th>Region</th><th>Samples</th><th>What it computes</th><th>Secret-dependent</th></tr>
+    <tr><td><code>kem_ntt_hi</code></td><td>3,584</td><td>NTT of ciphertext u</td><td>No</td></tr>
+    <tr><td><code>kem_ntt_lo</code></td><td>3,584</td><td>NTT of ciphertext u</td><td>No</td></tr>
+    <tr><td><code>kem_intt</code></td><td>3,584</td><td>INTT of &#x15c;&#x00b7;&#x00fb; (secret times ciphertext)</td><td><strong>Yes</strong></td></tr>
+  </table>
+  <p>
+    The <code>kem_intt</code> region is the attack target. Everything to the left of
+    sample 3584 in the trace plots comes from the ciphertext only, with no key information.
+  </p>
+</section>
+
+<section id="results">
+  <h2>Results</h2>
+
+  <div class="metrics-row">
+    <div class="mcard wide">
+      <div class="mv c-accent">81 &nbsp;<span style="font-size:1rem;font-weight:400;color:var(--muted)">vs threshold 4.5</span></div>
+      <div class="ml">ML-KEM TVLA max|t| &middot; both models leak heavily, no countermeasures applied</div>
+    </div>
+    <div class="mcard">
+      <div class="mv c-green">6%</div>
+      <div class="ml">CPA correlation drop, physics vs HW at N=500</div>
+    </div>
+    <div class="mcard">
+      <div class="mv c-purple">70</div>
+      <div class="ml">ML-DSA TVLA max|t| at N=200</div>
+    </div>
+  </div>
+
+  <h3>Power traces</h3>
+  <p>
+    30 overlaid decapsulation runs. The noise texture is visibly different between the two models.
+    The physics model (bottom) shows correlated structure from the HD term, while the HW model
+    noise is more uniform across samples.
+  </p>
+  <div class="plot-grid wide">
+    <div class="plot-card">
+      <img src="assets/traces.png" alt="30 overlaid ML-KEM-512 power traces, HW model top, physics model bottom" />
+      <div class="plot-caption">ML-KEM-512 decapsulation, 30 traces overlaid. Top: Hamming Weight model. Bottom: physics-informed. The rightmost third (kem_intt) is where the secret key shows up.</div>
+    </div>
+  </div>
+
+  <h3>TVLA leakage test</h3>
+  <p>
+    TVLA compares traces from a fixed input (same key, same message every time) against
+    traces from a fresh random input. Any sample where |t| exceeds 4.5 is statistically
+    leaking information tied to the secret. Both models come in well above that threshold
+    because neither algorithm has any power-analysis countermeasures.
+  </p>
+  <div class="plot-grid">
+    <div class="plot-card">
+      <img src="assets/tvla_hw.png" alt="TVLA t-statistic, Hamming Weight model" />
+      <div class="plot-caption">HW model &middot; max|t| &asymp; 81 &middot; 9,201 leaking samples out of 10,752</div>
+    </div>
+    <div class="plot-card">
+      <img src="assets/tvla_phy.png" alt="TVLA t-statistic, physics-informed model" />
+      <div class="plot-caption">Physics model &middot; max|t| &asymp; 82 &middot; 9,242 leaking samples</div>
+    </div>
+  </div>
+
+  <h3>CPA convergence</h3>
+  <p>
+    This is the main finding. As the attacker collects more traces, peak CPA correlation
+    climbs for both models, but the physics model consistently lags behind. At N=500 the gap
+    is around 6%. That's small but it's repeatable and systematic, and it comes entirely
+    from the model mismatch rather than added noise.
+  </p>
+  <div class="plot-grid wide">
+    <div class="plot-card">
+      <img src="assets/convergence.png" alt="CPA convergence curve comparing HW and physics-informed models" />
+      <div class="plot-caption">Peak Pearson correlation vs trace count, ML-KEM-512, step=50. The physics model needs more traces to reach the same correlation level, which is the expected consequence of HD-based noise not fitting a HW hypothesis.</div>
+    </div>
+  </div>
+</section>
+
+<section id="attacks">
+  <h2>Attack details</h2>
+
+  <h3>Byte-level CPA</h3>
+  <p>
+    The standard Kocher 1999 approach. The hypothesis is HW(k_guess XOR ct_byte[0])
+    for all 256 candidates. Pearson correlation is computed between each hypothesis vector
+    and every time sample across all traces. Whichever guess produces the highest peak
+    correlation is taken as the recovered byte.
+  </p>
+  <div class="plot-grid">
+    <div class="plot-card">
+      <img src="assets/cpa_hw.png" alt="CPA correlation map, Hamming Weight model" />
+      <div class="plot-caption">HW model &middot; peak|&rho;| &asymp; 0.49 at N=500</div>
+    </div>
+    <div class="plot-card">
+      <img src="assets/cpa_phy.png" alt="CPA correlation map, physics-informed model" />
+      <div class="plot-caption">Physics model &middot; peak|&rho;| &asymp; 0.46 at N=500</div>
+    </div>
+  </div>
+
+  <h3>NTT-coefficient CPA</h3>
+  <p>
+    During ML-KEM decapsulation the INTT computes &#x15c;&middot;&#x00fb; mod q, where &#x00fb; can be
+    recovered from the ciphertext. The secret s has coefficients bounded by &eta;&#8321;=3,
+    which means only 7 candidates per coefficient rather than the 256 a byte attack needs.
+    I targeted one coefficient of &#x15c; with the hypothesis HW(s_guess &middot; &#x00fb;[i] mod q).
+  </p>
+  <div class="callout">
+    <b>Result:</b> the attack is mathematically sound but hits near-zero success at N=500.
+    A single coefficient only explains a small fraction of the total INTT variance since
+    the leakage is spread across all 256 coefficients at once. Getting the full key would
+    need a template attack or a multi-coefficient approach, which is actually what you'd
+    expect given how ML-KEM's security proof works.
+  </div>
+
+  <table>
+    <tr><th>Attack</th><th>Hypothesis</th><th>Candidates</th><th>Result at N=500</th></tr>
+    <tr><td>Byte-level CPA</td><td>HW(k &oplus; ct[0])</td><td>256</td><td>peak|&rho;| = 0.49 (HW) / 0.46 (physics)</td></tr>
+    <tr><td>NTT-coefficient CPA</td><td>HW(&#x15c;[i]&middot;&#x00fb;[i] mod q)</td><td>7</td><td>Near zero, single-coefficient limitation</td></tr>
+    <tr><td>TVLA on ML-KEM</td><td>Welch t-test</td><td>n/a</td><td class="ok">max|t| = 81, threshold 4.5</td></tr>
+    <tr><td>TVLA on ML-DSA</td><td>Welch t-test</td><td>n/a</td><td class="ok">max|t| = 70, threshold 4.5</td></tr>
+  </table>
+</section>
+
+<section id="impl">
+  <h2>Code</h2>
+  <p>
+    Pure Python with no SCA libraries and no pre-built NTT. I used kyber-py 1.2.0 as a
+    reference oracle to validate the ML-KEM output. The hardest bug to find was in
+    ML-DSA's Decompose function. The FIPS 204 spec says that when r1 reaches (q&#8722;1)/(2&#947;2),
+    you set r1=0 and subtract 1 from r0. My original code only triggered that branch for
+    r = q&#8722;1, which is just one value out of all the cases that actually hit the ceiling.
+    Verify was quietly returning False for months before I traced it back to that line.
+  </p>
+  <table>
+    <tr><th>Component</th><th>Notes</th></tr>
+    <tr><td>ML-KEM-512/768</td><td>FIPS 203, full keygen / encaps / decaps. NTT: &zeta; = 17<sup>BitRev7(k)</sup> mod 3329</td></tr>
+    <tr><td>ML-DSA-44</td><td>FIPS 204, full keygen / sign / verify. NTT: &zeta; = 1753<sup>BitRev8(k)</sup> mod 8380417</td></tr>
+    <tr><td>Leakage models</td><td>HammingWeightModel and PhysicsModel with C=1fF, V=1.2V, &alpha;=0.5, &beta;=0.1</td></tr>
+    <tr><td>CPA</td><td>Pearson correlation, vectorised across all candidates at once via NumPy</td></tr>
+    <tr><td>TVLA</td><td>Welch t-test, fixed set uses same key and same message, threshold |t| = 4.5</td></tr>
+    <tr><td>API</td><td>FastAPI with <code>/run</code>, <code>/traces</code>, <code>/attack</code>, <code>/report</code></td></tr>
+    <tr><td>Tests</td><td>25 passing, 15 for ML-KEM and 10 for ML-DSA</td></tr>
+  </table>
+
+  <div style="margin-top:1.8rem; display:flex; gap:0.7rem; flex-wrap:wrap;">
+    <a href="https://github.com/Sohom-Sarkar/pqc-sca" class="link-primary">GitHub</a>
+    <a href="mailto:sohomsarkar29@gmail.com" class="link-secondary">sohomsarkar29@gmail.com</a>
+  </div>
+</section>
+
+<footer>
+  Sohom Sarkar, IIT Jodhpur &middot;
+  <a href="https://github.com/Sohom-Sarkar/pqc-sca">github.com/Sohom-Sarkar/pqc-sca</a>
+</footer>
+
+</body>
+</html>
